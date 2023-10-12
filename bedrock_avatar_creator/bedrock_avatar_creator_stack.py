@@ -87,6 +87,11 @@ class BedrockAvatarCreatorStack(Stack):
             actions=["bedrock-runtime:*"],
             resources=["*"]
             ))
+            # add permisions to api_backend to rekognition full access
+        api_backend.add_to_role_policy(iam.PolicyStatement(
+            actions=["rekognition:*"],
+            resources=["*"]
+            ))
         
         # add permisions to rekognition service to read from s3_file_bucket
 
