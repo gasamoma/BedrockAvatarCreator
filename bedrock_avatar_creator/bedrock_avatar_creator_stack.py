@@ -33,7 +33,7 @@ class BedrockAvatarCreatorStack(Stack):
         vpc = ec2.Vpc(self, "roop-vpc", max_azs=3)     # default is all AZs in region
 
         cluster = ecs.Cluster(self, "roop-cluster", vpc=vpc)
-        repository = ecr.Repository.from_repository_arn(self,"roop-repo", "arn:aws:ecr:us-east-1:016267129961:roop")
+        repository = ecr.Repository.from_repository_arn(self,"roop-repo", "arn:aws:ecr:us-east-1:016267129961:repository/roop")
         load_balancer = ecs_patterns.ApplicationLoadBalancedFargateService(self, "roop-service",
             cluster=cluster,            # Required
             cpu=512,                    # Default is 256

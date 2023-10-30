@@ -57,9 +57,17 @@ $(document).ready(function() {
     function hideLoadingOverlay() {
         loadingOverlay.hide();
     }
-    // a function that ...
     function uploadFile(signedUrl="https://some.s3.amazonaws.com/") {
-        
+        // get the file from the input
+        const file = $("#image-upload")[0].files[0];
+        // make a request to the signed url
+        $.ajax({
+            contentType: 'binary/octet-stream',
+            url: signedUrl,
+            type: 'PUT',
+            data: file,
+            processData: false
+        });
     }
     hideLoadingOverlay();
     // Call the showLoadingOverlay function when you want to display the overlay
@@ -86,7 +94,15 @@ $(document).ready(function() {
     }
     // a function that ...
     function get_presigned_url(id_token) {
-        return {}
+        // create a header Authorization with the id_token
+        headers = {
+            'Authorization': 'Bearer ' + id_token
+        }
+        // do a get request to this endpoint /get_presigned_url
+        return get(api_backend_url, headers).then(response => {
+            // and return the presigned url
+            return response;
+        });
     }
     // a function that ...
     function submit_button_function(id_token){
@@ -158,6 +174,7 @@ $(document).ready(function() {
             // Convert the canvas content to a data URL and log it
             const photoDataUrl = canvas.toDataURL('image/png');
             console.log('Captured Photo:', photoDataUrl);
+            uploadFile()
             
             // Optional: You can send the data URL to a server for further processing or storage.
         });
