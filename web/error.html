@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Document Management</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/aws-sdk/2.1106.0/aws-sdk.min.js"></script>
+    <script src="/scripts.js"></script>
+</head>
+<body>
+    <div id="login-container">
+        <h2>Login</h2>
+        <button id="login-button">Login with Amazon Cognito</button>
+    </div>
+    <div id="document-selection" style="display: none;">
+        <h2>Select a Document</h2>
+        <select id="document-dropdown"></select>
+        <button id="open-document-button">Open Document</button>
+        <div id="search-container" style="display: none;">
+            <input type="text" id="search-input" placeholder="Search in Document">
+            <button id="search-button">Search</button>
+        </div>
+    </div>
+    <div id="search-results-container"></div>
+
+</body>
+</html>

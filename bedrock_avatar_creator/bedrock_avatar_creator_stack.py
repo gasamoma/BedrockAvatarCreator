@@ -16,6 +16,12 @@ from aws_cdk import (
     aws_cloudfront as _cf,
     aws_s3_deployment as s3deploy,
     aws_cloudfront_origins as origins,
+    aws_ecs as ecs,
+    aws_ecr as ecr,
+    aws_autoscaling as autoscaling,
+    aws_ec2 as ec2,
+    aws_ecs_patterns as ecs_patterns,
+    
 )
 from constructs import Construct
 
@@ -23,9 +29,24 @@ class BedrockAvatarCreatorStack(Stack):
 
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
+        
+        vpc = ec2.Vpc(self, "roop-vpc", max_azs=3)     # default is all AZs in region
+
+        cluster = ecs.Cluster(self, "roop-cluster", vpc=vpc)
+        repository = ecr.Repository.from_repository_arn(self,"roop-repo", "arn:aws:ecr:us-east-1:016267129961:roop")
+        load_balancer = ecs_patterns.ApplicationLoadBalancedFargateService(self, "roop-service",
+            cluster=cluster,            # Required
+            cpu=512,                    # Default is 256
+            desired_count=1,            # Default is 1
+            task_image_options=ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
+                image=ecs.ContainerImage.from_ecr_repository(repository,"latest"),),
+            memory_limit_mib=2048,      # Default is 512
+            public_load_balancer=True)  # Default is True
+            #016267129961.dkr.ecr.us-east-1.amazonaws.com/roop
+        load_balancer_dns = load_balancer.load_balancer.load_balancer_dns_name
         # a cognito user pool that uses cognito managed login sign up and password recovery
         user_pool = _cognito.UserPool(
-            self, "CW-UserPool",
+            self, "Bedrock-Avatar-UserPool",
             self_sign_up_enabled=True,
             # removal policy destroy
             removal_policy=RemovalPolicy.DESTROY,
@@ -66,6 +87,7 @@ class BedrockAvatarCreatorStack(Stack):
                 #"BUCKET_NAME": s3_bucket.bucket_name,
                 # post_autentication_dynamo_table_name
                 "BUCKET": s3_file_bucket.bucket_name,
+                "ROOP": load_balancer_dns
                 },
             timeout=Duration.seconds(120),
             layers=[
@@ -99,7 +121,7 @@ class BedrockAvatarCreatorStack(Stack):
         # an API gateway that with cors for the cloudfront
         api_gateway = apigateway.RestApi(
             self, "ApiGWBackend",
-            rest_api_name="CWApiGateway",
+            rest_api_name="Bedrock-AvatarApiGateway",
             description="This is the bedrockAvatar API Gateway",
             default_cors_preflight_options=apigateway.CorsOptions(
                 allow_methods=["*"],
@@ -161,9 +183,7 @@ class BedrockAvatarCreatorStack(Stack):
         # a method for the api that calls the bedrock lambda function
         api_backend_integration = apigateway.LambdaIntegration(api_backend,
                 request_templates={"application/json": '{ "statusCode": "200" }'})
-        api_backend_get_integration = apigateway.LambdaIntegration( api_back_get,
-                request_templates={"application/json": '{ "statusCode": "200" }'})
-        
+       
         # add the  LambdaIntegration to the api gateway using user_pool as the authorization
         api_backend_resource = api_gateway.root.add_resource("api_backend")
         autorizer=apigateway.CognitoUserPoolsAuthorizer(
@@ -173,10 +193,7 @@ class BedrockAvatarCreatorStack(Stack):
             "POST", api_backend_integration,
             authorization_type=apigateway.AuthorizationType.COGNITO,
             authorizer=autorizer)
-        method_api_backend_get = api_backend_resource.add_method(
-            "GET", api_backend_get_integration,
-            authorization_type=apigateway.AuthorizationType.COGNITO,
-            authorizer=autorizer)
+
         deployment = apigateway.Deployment(self, "Deployment",
             api=api_gateway,
             description="This is the bedrockAvatar API Gateway Deployment")
@@ -187,3 +204,4 @@ class BedrockAvatarCreatorStack(Stack):
             string_value=sign_in_url)
         # CfnOutput the user_pool login url
         CfnOutput(self, "UserPoolLoginUrl", value=sign_in_url)
+        CfnOutput(self, "LoadbalancerDNS", value=load_balancer_dns)
