@@ -2,7 +2,6 @@ import json
 import urllib.parse
 import boto3
 import base64
-from PIL import Image, ImageOps
 import io
 from io import BytesIO
 import requests
@@ -11,9 +10,9 @@ import os
 #clients
 s3 = boto3.client('s3')
 client_topic = boto3.client('iot-data', region_name='us-east-1')
-modelId = 'stability.stable-diffusion-xl'
+modelId = os.environ.get("MODELID",'stability.stable-diffusion-xl-v0')
 GENDERMAP= {"Male" : "Man", "Female" : "Woman"}
-ROOP = os.environ.get("ROOP","http://internal-roop-internal-1518407261.us-east-1.elb.amazonaws.com/start_roop")
+ROOP = "http://"+os.environ.get("ROOP","internal-roop-internal-1518407261.us-east-1.elb.amazonaws.com")+'/start_roop'
 topic = 'StyleGenerated'
 
 rekognition = boto3.client('rekognition', endpoint_url="https://rekognition.us-east-1.amazonaws.com")
@@ -44,7 +43,7 @@ styles = {1: {'name': 'Doctor', 'prompt': 'Woman, professional demeanor, doctor,
 # 'Male' : 'Marvel Movies, Man, Canon 5D Mark IV, professional photographer,  Cinematic,  New York, background, epic pose, weapon in arms, muscular, realistic, proportioned, Hyper realistic',
 # 'Neutral' : 'Marvel Movies, Person, Canon 5D Mark IV, professional photographer,  Cinematic,  New York, background, epic pose, weapon in arms, muscular, realistic, proportioned, Hyper realistic',
 # }
-}
+# }
 negative_prompt = 'helmet, armor, Watermark, Text, censored, deformed, bad anatomy, disfigured, poorly drawn face, mutated, extra limb, ugly, poorly drawn hands, missing limb, floating limbs, disconnected limbs, disconnected head, malformed hands, long neck, mutated hands and fingers, bad hands, missing fingers, cropped, worst quality, low quality, mutation, poorly drawn, huge calf, bad hands, fused hand, missing hand, disappearing arms, disappearing thigh, disappearing calf, disappearing legs, missing fingers, fused fingers, abnormal eye proportion, Abnormal hands, abnormal legs, abnormal feet,  abnormal fingers'
 
 def detect_faces(bucket, key):
@@ -62,13 +61,14 @@ def detect_faces(bucket, key):
 
 
 def publish_message(topic2, mensaje):
-    llave='imageKey'
-    response = client_topic.publish(
-        topic=topic2,
-        qos=1,
-        payload=json.dumps({llave : mensaje})
-    )
-    print(response)
+    return None
+    # llave='imageKey'
+    # response = client_topic.publish(
+    #     topic=topic2,
+    #     qos=1,
+    #     payload=json.dumps({llave : mensaje})
+    # )
+    # print(response)
 
 
 
@@ -77,17 +77,18 @@ def lambda_handler(event, context):
     key = urllib.parse.unquote_plus(event['Records'][0]['s3']['object']['key'], encoding='utf-8')
     # assumed_role_object=sts_client.assume_role(RoleArn="arn:aws:iam::479225850607:role/bedrock-crossaccount-role", RoleSessionName="LambdaRole")
     # credentials=assumed_role_object['Credentials']
-    bedrock = boto3.client('bedrock')
+    bedrock = boto3.client('bedrock-runtime')
     print("Assumed Role")
-    s3_object = self.s3.get_object(Bucket=bucket, Key=key)
+    s3_object = s3.get_object(Bucket=bucket, Key=key)
     file_byte_string = s3_object['Body'].read()
-    photo_data = BytesIO(file_byte_string))
+    photo_data = BytesIO(file_byte_string)
     style = styles[int(event['style'])]
     
     print("Got Object")
     age_gender = detect_faces(bucket, key)
     print("Called Rekognition")
     prompt_data = style['prompt']
+    style_name = style['name']
     # prompt_data = prepared_prompts.get(style).get(age_gender['Gender']) 
     print(prompt_data)
     body = json.dumps({"text_prompts":[{"text": prompt_data },{"text" : negative_prompt, "weight" : -0.9}], "steps":50 ,"cfg_scale":10, "samples" : 1 , "style_preset" : 'photographic' })
@@ -98,9 +99,12 @@ def lambda_handler(event, context):
         raise error
     print("Called Bedrock")
     if response['contentType'] == 'image/png':
+        print("got PNG")
         image_data = response['body'].read()
     else:
+        print("NOT PNG")
         image_data = response['body']
+        print(image_data)
 
     
     #nombre = key.split("/")
@@ -112,13 +116,13 @@ def lambda_handler(event, context):
     print("Got Response from Roop")
     bin_data = response.content
     try:
-        nuevaKey= "public/processed/" + (key.split('/'))[-1].replace(".png", ".jpeg")
+        nuevaKey= "public/processed/"+style_name+"/" + (key.split('/'))[-1].replace(".png", ".jpeg")
         print(nuevaKey)
         # Upload image to s3
-        s3.put_object(Bucket='cloud-exp-genia-2023142244-main',
+        s3.put_object(Bucket=bucket,
                      Key=nuevaKey,
                      Body=bin_data)
-        publish_message(topic, "processed/" + (key.split('/'))[-1].replace(".png", ".jpeg")) 
+        publish_message(topic, "processed/"+style_name+"/" + (key.split('/'))[-1].replace(".png", ".jpeg")) 
         print("imagen generada guardada ! ")
     except Exception as e:
         print(e)

@@ -21,6 +21,7 @@ from aws_cdk import (
     aws_autoscaling as autoscaling,
     aws_ec2 as ec2,
     aws_ecs_patterns as ecs_patterns,
+    aws_logs as aws_logs,
     
 )
 from constructs import Construct
@@ -30,20 +31,65 @@ class BedrockAvatarCreatorStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
         
-        vpc = ec2.Vpc(self, "roop-vpc", max_azs=3)     # default is all AZs in region
-
+        vpc = ec2.Vpc(self, "roop-vpc",
+            gateway_endpoints={
+                "S3": ec2.GatewayVpcEndpointOptions(
+                    service=ec2.GatewayVpcEndpointAwsService.S3)}, 
+            max_azs=3)     # default is all AZs in region
+        
+        # add addInterfaceEndpoint for com.amazonaws.region.ecr.api
+        vpc.add_interface_endpoint("ecr-api",
+            service=ec2.InterfaceVpcEndpointAwsService.ECR,
+            private_dns_enabled=True)
+        # add addInterfaceEndpoint for com.amazonaws.region.ecr.dkr
+        vpc.add_interface_endpoint("ecr-dkr",
+            service=ec2.InterfaceVpcEndpointAwsService.ECR_DOCKER,
+            private_dns_enabled=True)
+            
+        
+            
         cluster = ecs.Cluster(self, "roop-cluster", vpc=vpc)
         repository = ecr.Repository.from_repository_arn(self,"roop-repo", "arn:aws:ecr:us-east-1:016267129961:repository/roop")
+        # create a task definition with FargateTaskDefinition 
+        # memory_limit_mib=2048, ephemeral_storage_gib=100, cpu=1024
+        task_definition = ecs.FargateTaskDefinition(self, "TaskDef",
+            memory_limit_mib=4096,
+            cpu=1024,
+            ephemeral_storage_gib=200)
+            
+            
+            
+        task_definition.add_container("web",
+            image=ecs.ContainerImage.from_ecr_repository(repository,"latest"),
+            # port mappings
+            port_mappings=[ecs.PortMapping(container_port=8000, host_port=8000)],
+            
+            # add awslogs log configuration
+            logging=ecs.AwsLogDriver(
+                stream_prefix="ecs",
+                log_retention=aws_logs.RetentionDays.ONE_WEEK)
+            )
+
+        
+        # health check to /get_execution_providers
         load_balancer = ecs_patterns.ApplicationLoadBalancedFargateService(self, "roop-service",
             cluster=cluster,            # Required
             cpu=512,                    # Default is 256
             desired_count=1,            # Default is 1
-            task_image_options=ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
-                image=ecs.ContainerImage.from_ecr_repository(repository,"latest"),),
+            task_definition=task_definition,
             memory_limit_mib=2048,      # Default is 512
-            public_load_balancer=True)  # Default is True
-            #016267129961.dkr.ecr.us-east-1.amazonaws.com/roop
+            public_load_balancer=True
+            )
+        
+        # set the health check path to /get_execution_providers
+        
+        load_balancer.target_group.configure_health_check(path="/get_execution_providers")
         load_balancer_dns = load_balancer.load_balancer.load_balancer_dns_name
+        # add permisions to the fargate role to access the ecr repo to pull the image
+        load_balancer.service.task_definition.add_to_execution_role_policy(iam.PolicyStatement(
+            actions=["ecr:GetAuthorizationToken", "ecr:BatchCheckLayerAvailability", "ecr:GetDownloadUrlForLayer", "ecr:BatchGetImage"],
+            resources=["*"]
+            ))
         # a cognito user pool that uses cognito managed login sign up and password recovery
         user_pool = _cognito.UserPool(
             self, "Bedrock-Avatar-UserPool",
@@ -82,18 +128,19 @@ class BedrockAvatarCreatorStack(Stack):
             entry="app/lambda",
             index="api.py",  
             handler="lambda_handler",
-            runtime=_lambda.Runtime.PYTHON_3_9,
+            runtime=_lambda.Runtime.PYTHON_3_10,
             environment={
                 #"BUCKET_NAME": s3_bucket.bucket_name,
                 # post_autentication_dynamo_table_name
                 "BUCKET": s3_file_bucket.bucket_name,
-                "ROOP": load_balancer_dns
+                "ROOP": load_balancer_dns,
+                "MODELID": "stability.stable-diffusion-xl-v0"
                 },
             timeout=Duration.seconds(120),
             layers=[
                 python.PythonLayerVersion(self, "api_layer",
                     entry="lib/python",
-                    compatible_runtimes=[_lambda.Runtime.PYTHON_3_9]
+                    compatible_runtimes=[_lambda.Runtime.PYTHON_3_10]
                 )
             ]
         )
@@ -101,12 +148,14 @@ class BedrockAvatarCreatorStack(Stack):
         s3_file_bucket.grant_read(api_backend)
         # add alpermisions to api_backend to lsi s3_file_bucket
         api_backend.add_to_role_policy(iam.PolicyStatement(
-            actions=["s3:ListBucket"],
-            resources=[s3_file_bucket.bucket_arn]
+            actions=["s3:ListBucket", "s3:GetObject","s3:PutObject","s3:PutObjectAcl","s3:GetObjectAcl"],
+            resources=[
+                s3_file_bucket.bucket_arn,
+                s3_file_bucket.bucket_arn + "/*"]
             ))
         # add permisions to api_backend to rekognition full access
         api_backend.add_to_role_policy(iam.PolicyStatement(
-            actions=["bedrock-runtime:*"],
+            actions=["bedrock:*"],
             resources=["*"]
             ))
             # add permisions to api_backend to rekognition full access
@@ -132,7 +181,7 @@ class BedrockAvatarCreatorStack(Stack):
         
         domain = user_pool.add_domain("CognitoDomain",
             cognito_domain=_cognito.CognitoDomainOptions(
-                domain_prefix="bedrock-avatar-7e7c7b75-9915-4d46-a280-1a2283adfa09"
+                domain_prefix="bedrock-avatar-creator-domain-000001"
             )
         )
         
