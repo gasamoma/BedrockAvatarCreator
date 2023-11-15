@@ -1,17 +1,18 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-    <title>Space Shuttle Sign-Up</title>
+    <title>Girls in technology</title>
     <link rel="stylesheet" type="text/css" href="style.css">
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.js" integrity="sha256-eKhayi8LEQwp4NKxN+CfCh+3qOVUtJn3QNZ0TciWLP4=" crossorigin="anonymous"></script>
     <script src="scripts.js"></script>
 </head>
+
 <body>
-    <header>
-        <div id="navigation">
-            <div id="change-user">Change User</div>
-        </div>
-    </header>
+    <div id="notificationContainer" class="notification-container">
+        <!-- Notifications will be dynamically added here -->
+    </div>
+
     <div id="loading-overlay" class="overlay">
         <div class="overlay-content">
             <div class="loading-spinner"></div>
@@ -19,20 +20,29 @@
         </div>
     </div>
     <div class="container">
-        <div class="shuttle-image">
-            <img src="blueorigins.png" alt="Space Shuttle">
-        </div>
-        <div class="form-container">
-            
-            <form id = "avatar-form">
-                <video id="video" width="640" height="480" autoplay></video>
-                <button id="capture">Capture Photo</button>
-                <canvas id="canvas" width="640" height="480"></canvas>
-                <input id="photo-styles" list="browsers" name="browser">
-                <datalist id="browsers">
-                </datalist>
-            </form>
+        <video id="video" width="640" height="480" autoplay></video>
+        <canvas id="canvas" width="640" height="480"></canvas>
+        <div class="top-bar">
+            <img src="./girls_in_tech.png" alt="Logo">
+            <div class="form-container">
+
+                <form id="avatar-form">
+
+                    <button id="take-photo">Say Cheese!!</button>
+                        <div id="yo">YO</div>
+                        <input id="custom-name" name="custom-name" placeholder="Juana de Arco">
+                        <button id="i-want-button">Quiero ser ...</button>
+                        <input id="photo-styles" list="browsers" name="browser">
+                        <button id="reset" class="action-button">Reset.</button>
+                        <datalist id="browsers">
+                        </datalist>
+                </form>
+
+
+            </div>
         </div>
     </div>
+
 </body>
+
 </html>

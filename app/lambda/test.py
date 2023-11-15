@@ -15,9 +15,9 @@ a = {"style": "36",
   ]
 }
 r_json = list()
-images = ['FL1.jpeg','FL2.jpeg','FL3.jpeg','FL4.jpeg']
+images = ['FL6.jpeg']
 for image in images:
-    for i in range(1,27):
+    for i in range(1,32):
         r_json.append({"style": str(i), "Records": [{"s3": {"bucket": {"name": "bedrockavatarcreatorstac-bedrockavatarimagestore7-14hmtn4fhp02r"}, "object": {"key": image}}}]})
 # write the json in a file
 with open('data.json', 'w') as outfile:

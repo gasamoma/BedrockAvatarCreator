@@ -75,7 +75,7 @@ class BedrockAvatarCreatorStack(Stack):
         load_balancer = ecs_patterns.ApplicationLoadBalancedFargateService(self, "roop-service",
             cluster=cluster,            # Required
             cpu=512,                    # Default is 256
-            desired_count=3,            # Default is 1
+            desired_count=1,            # Default is 1
             task_definition=task_definition,
             memory_limit_mib=2048,      # Default is 512
             public_load_balancer=True
@@ -144,6 +144,53 @@ class BedrockAvatarCreatorStack(Stack):
                 )
             ]
         )
+        
+        api_back_get = python.PythonFunction(self, "ApiBackendGet",
+            entry="app/lambda",
+            index="api_get.py",
+            handler="handler",
+            runtime=_lambda.Runtime.PYTHON_3_9,
+            environment={
+                    "BUCKET": s3_file_bucket.bucket_name,
+                },
+            timeout=Duration.seconds(120),
+            layers=[
+                python.PythonLayerVersion(self, "api_layer_get",
+                    entry="lib/python",
+                    compatible_runtimes=[_lambda.Runtime.PYTHON_3_9]
+                )
+            ]
+        )
+        get_user_files_lambda = python.PythonFunction(self, "GetUserFilesLambdaFunction",
+            entry="app/lambda",
+            index="get_user_files.py",
+            handler="lambda_handler",
+            runtime=_lambda.Runtime.PYTHON_3_9,
+            environment={
+                "BUCKET_NAME": s3_file_bucket.bucket_name
+            },
+            timeout=Duration.seconds(120),
+            layers=[
+                python.PythonLayerVersion(self, "GetUserFilesLambdaFunction_layer",
+                    entry="lib/python",
+                    compatible_runtimes=[_lambda.Runtime.PYTHON_3_9]
+                )
+            ]
+        )
+        
+        get_user_files_lambda.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "s3:ListBucket",
+                    "s3:GetObject",
+                    "s3:GetObjectVersion"
+                    ],
+                resources=[s3_file_bucket.bucket_arn,s3_file_bucket.bucket_arn + "/*"]))
+        # add permisions to api_back_get to presing urls from s3 to put
+        s3_file_bucket.grant_put(api_back_get,objects_key_pattern="input/*")
+        # add permisions to api_back_get to presing urls from s3 to write
+        s3_file_bucket.grant_write(api_back_get,objects_key_pattern="input/*")
+        s3_file_bucket.grant_read(api_back_get,objects_key_pattern="input/*")
         # add permisions to api_backend AmazonS3ReadOnlyAccess
         s3_file_bucket.grant_read(api_backend)
         # add alpermisions to api_backend to lsi s3_file_bucket
@@ -233,8 +280,16 @@ class BedrockAvatarCreatorStack(Stack):
         api_backend_integration = apigateway.LambdaIntegration(api_backend,
                 request_templates={"application/json": '{ "statusCode": "200" }'})
        
+        api_backend_get_integration = apigateway.LambdaIntegration( api_back_get,
+                request_templates={"application/json": '{ "statusCode": "200" }'})
+                
+        get_user_files_integration = apigateway.LambdaIntegration(get_user_files_lambda,
+                request_templates={"application/json": '{ "statusCode": "200" }'})
+                
         # add the  LambdaIntegration to the api gateway using user_pool as the authorization
         api_backend_resource = api_gateway.root.add_resource("api_backend")
+        get_user_files_resource = api_gateway.root.add_resource("get_user_files")
+        
         autorizer=apigateway.CognitoUserPoolsAuthorizer(
                 self, "IdpAuthorizer",
                 cognito_user_pools=[user_pool])
@@ -242,12 +297,23 @@ class BedrockAvatarCreatorStack(Stack):
             "POST", api_backend_integration,
             authorization_type=apigateway.AuthorizationType.COGNITO,
             authorizer=autorizer)
+        method_get_user_files = get_user_files_resource.add_method(
+            "POST", get_user_files_integration,
+            authorization_type=apigateway.AuthorizationType.COGNITO,
+            authorizer=autorizer)
+        method_api_backend_get = api_backend_resource.add_method(
+            "GET", api_backend_get_integration,
+            authorization_type=apigateway.AuthorizationType.COGNITO,
+            authorizer=autorizer)
 
         deployment = apigateway.Deployment(self, "Deployment",
             api=api_gateway,
             description="This is the bedrockAvatar API Gateway Deployment")
             
-        
+        s3_file_bucket.add_cors_rule(allowed_origins=["*"],# TODO Only allow cloudfront_website
+            allowed_methods=[s3.HttpMethods.PUT],
+            allowed_headers=['*'])
+            
         ssm.StringParameter(self, "user_pool_login_url",
             parameter_name="user_pool_login_url"+construct_id,
             string_value=sign_in_url)
