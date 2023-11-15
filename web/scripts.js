@@ -14,7 +14,8 @@ $(document).ready(function() {
     const video = $("#video");
     const customName = $("#custom-name")
     const yoDiv = $("#yo");
-    const resetButton = $("#reset")
+    const resetButton = $("#reset");
+    const logoNav = $("#nav-logo");
     resetButton.hide();
     customName.hide();
     yoDiv.hide();
@@ -109,7 +110,9 @@ $(document).ready(function() {
     function something_failed(jqXHR, textStatus, error) {
         // reload to index.html
         console.log(error);
-        window.location.href = "index.html";
+        const hash_parameters = window.location.hash
+        
+        window.location.href = "index.html" + hash_parameters;
         return;
     }
     // a fucntion that does a jquery post
@@ -211,7 +214,17 @@ $(document).ready(function() {
     }
 
     function reset_web_page() {
+        const hash_parameters = window.location.hash
         window.location.href = "index.html";
+    }
+    
+
+    function gallery_web_page() {
+        // navigate to gallery.html and forward hash string parameters
+        // get the all the hash string paremeters using jquery
+        const hash_parameters = window.location.hash
+        
+        window.location.href = "gallery.html" + hash_parameters;
     }
 
 
@@ -317,6 +330,7 @@ $(document).ready(function() {
             });
 
         resetButton.click(reset_web_page);
+        logoNav.click(gallery_web_page);
         // Capture photo from the video stream
         captureButton.click(function() {
             const context = canvas.getContext('2d');

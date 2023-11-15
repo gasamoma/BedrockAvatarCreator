@@ -1,11 +1,21 @@
 $(document).ready(function() {
     let api_backend_url = "https://a4mqym33sh.execute-api.us-east-1.amazonaws.com/prod/";
     let cognito_url = "https://bedrock-avatar-creator-domain-000001.auth.us-east-1.amazoncognito.com/login?client_id=529e8uqd64sk72n0u4nejthns7&response_type=token&redirect_uri=https://d1sjp6oavn8rzq.cloudfront.net/index.html";
+    const logoNav = $("#nav-logo");
     function something_failed(jqXHR, textStatus, error) {
         // reload to index.html
         console.log(error);
-        window.location.href = "index.html";
+        const hash_parameters = window.location.hash
+        
+        window.location.href = "index.html" + hash_parameters;
         return;
+    }
+    function home_web_page() {
+        // navigate to gallery.html and forward hash string parameters
+        // get the all the hash string paremeters using jquery
+        const hash_parameters = window.location.hash
+        
+        window.location.href = "index.html" + hash_parameters;
     }
 
     function post(url, data, headers = {}) {
@@ -87,6 +97,8 @@ $(document).ready(function() {
             resolve(id_token[1]);
         });
     }
+    
+    logoNav.click(home_web_page);
     loadCredentials().then(id_token => {
         get_user_files(id_token);
     });

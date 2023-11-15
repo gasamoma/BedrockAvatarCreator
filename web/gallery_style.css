@@ -60,5 +60,8 @@ body {
 }
 
 .blur {
-    filter: blur(15px); /* Adjust the blur value as needed */
+    filter: blur(18px); /* Adjust the blur value as needed */
+}
+.logo {
+    width: 100px;
 }
