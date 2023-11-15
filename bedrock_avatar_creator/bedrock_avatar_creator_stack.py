@@ -75,7 +75,7 @@ class BedrockAvatarCreatorStack(Stack):
         load_balancer = ecs_patterns.ApplicationLoadBalancedFargateService(self, "roop-service",
             cluster=cluster,            # Required
             cpu=512,                    # Default is 256
-            desired_count=1,            # Default is 1
+            desired_count=4,            # Default is 1
             task_definition=task_definition,
             memory_limit_mib=2048,      # Default is 512
             public_load_balancer=True

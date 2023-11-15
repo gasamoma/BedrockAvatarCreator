@@ -2,19 +2,21 @@ $(document).ready(function() {
     let api_backend_url = "https://a4mqym33sh.execute-api.us-east-1.amazonaws.com/prod/";
     let cognito_url = "https://bedrock-avatar-creator-domain-000001.auth.us-east-1.amazoncognito.com/login?client_id=529e8uqd64sk72n0u4nejthns7&response_type=token&redirect_uri=https://d1sjp6oavn8rzq.cloudfront.net/index.html";
     const logoNav = $("#nav-logo");
+
     function something_failed(jqXHR, textStatus, error) {
         // reload to index.html
         console.log(error);
         const hash_parameters = window.location.hash
-        
+
         window.location.href = "index.html" + hash_parameters;
         return;
     }
+
     function home_web_page() {
         // navigate to gallery.html and forward hash string parameters
         // get the all the hash string paremeters using jquery
         const hash_parameters = window.location.hash
-        
+
         window.location.href = "index.html" + hash_parameters;
     }
 
@@ -45,6 +47,8 @@ $(document).ready(function() {
             const imageUrls = response;
 
             const galleryContainer = document.getElementById('galleryContainer');
+            // empty the galleryContainer before adding the images
+            galleryContainer.innerHTML = '';
 
             // Dynamically create thumbnail elements
             imageUrls.forEach((imageUrl, index) => {
@@ -60,25 +64,27 @@ $(document).ready(function() {
             });
             const blurSwitch = $('#blurSwitch');
             const imageGallery = $('.thumbnail');
-            
+
             // set blur by default
             blurSwitch.checked = true;
             // do the same but wiht jquery
-            blurSwitch.change(function () {
+            blurSwitch.change(function() {
                 if (this.checked) {
                     imageGallery.addClass('blur');
-                } else {
+                }
+                else {
                     imageGallery.removeClass('blur');
                 }
             });
             // trigger the blur by default
-            blurSwitch.click();
+            // blurSwitch.click();
             // if thumbnail is clicked, remove blur for that image
-            imageGallery.click(function () {
+            imageGallery.click(function() {
                 // if does not contain blur class, remove blur if not add it
                 if (!$(this).hasClass('blur')) {
                     $(this).addClass('blur');
-                }else{
+                }
+                else {
                     $(this).removeClass('blur');
                 }
             });
@@ -97,10 +103,15 @@ $(document).ready(function() {
             resolve(id_token[1]);
         });
     }
-    
-    logoNav.click(home_web_page);
-    loadCredentials().then(id_token => {
-        get_user_files(id_token);
-    });
 
+    function refresh_gallery() {
+        loadCredentials().then(id_token => {
+            get_user_files(id_token);
+        });
+    }
+
+    logoNav.click(home_web_page);
+    // every minute call refresh_gallery
+    setInterval(refresh_gallery, 60000);
+    refresh_gallery();
 });

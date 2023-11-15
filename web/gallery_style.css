@@ -57,10 +57,20 @@ body {
     max-width: 100%;
     height: auto;
     filter: blur(0); /* Initial blur value, can be adjusted */
+    transition: filter 0.3s;
+}
+
+.gallery img:hover {
+    filter: blur(9px); /* Adjust the blur value for the hover effect */
 }
 
 .blur {
     filter: blur(18px); /* Adjust the blur value as needed */
+}
+
+/* Hover effect for the logo */
+.logo:hover {
+    color: #4285f4; /* Change the color to your preferred hover color */
 }
 .logo {
     width: 100px;
