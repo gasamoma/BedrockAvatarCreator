@@ -22,7 +22,7 @@ from aws_cdk import (
     aws_ec2 as ec2,
     aws_ecs_patterns as ecs_patterns,
     aws_logs as aws_logs,
-    
+    aws_s3_notifications as s3n,
 )
 from constructs import Construct
 
@@ -177,6 +177,24 @@ class BedrockAvatarCreatorStack(Stack):
                 )
             ]
         )
+        add_custom_frame = python.PythonFunction(self, "CustomFrame",
+            entry="app/lambda",
+            index="add_custom_frame.py",  
+            handler="lambda_handler",
+            runtime=_lambda.Runtime.PYTHON_3_10,
+            environment={
+                #"BUCKET_NAME": s3_bucket.bucket_name,
+                # post_autentication_dynamo_table_name
+                "BUCKET": s3_file_bucket.bucket_name
+                },
+            timeout=Duration.seconds(120),
+            layers=[
+                python.PythonLayerVersion(self, "custom_frame_layer",
+                    entry="lib/python",
+                    compatible_runtimes=[_lambda.Runtime.PYTHON_3_10]
+                )
+            ]
+        )
         
         get_user_files_lambda.add_to_role_policy(
             iam.PolicyStatement(
@@ -186,6 +204,12 @@ class BedrockAvatarCreatorStack(Stack):
                     "s3:GetObjectVersion"
                     ],
                 resources=[s3_file_bucket.bucket_arn,s3_file_bucket.bucket_arn + "/*"]))
+        add_custom_frame.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["s3:*"],
+                resources=[s3_file_bucket.bucket_arn,s3_file_bucket.bucket_arn + "/*"]))
+        # add event to s3_file_bucket in the public/processed/ prefix to execute the add_custom_frame lambda
+        s3_file_bucket.add_event_notification(s3.EventType.OBJECT_CREATED, s3n.LambdaDestination(add_custom_frame), s3.NotificationKeyFilter(prefix="public/unprocessed/"))
         # add permisions to api_back_get to presing urls from s3 to put
         s3_file_bucket.grant_put(api_back_get,objects_key_pattern="input/*")
         # add permisions to api_back_get to presing urls from s3 to write

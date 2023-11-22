@@ -84,7 +84,7 @@ def clean_user_input(user_input):
     custom_name = re.sub(r'[^a-zA-Z0-9]+', '', custom_name)
     return custom_name
 
-clean_user_input("PílAr A.lexandrá")
+
 
 def lambda_handler(event, context):
     # get the cognito username from the event
@@ -146,7 +146,7 @@ def lambda_handler(event, context):
     try:
         # remove the file extention from the key
         key_no_ext = ((key.split('/'))[-1]).split('.')[0]
-        nuevaKey= "public/processed/"+username+"/"+custom_name+"-"+style_name+".jpeg"
+        nuevaKey= "public/unprocessed/"+username+"/"+custom_name+"-"+style_name+".jpeg"
         print(nuevaKey)
         # Upload image to s3
         s3.put_object(Bucket=bucket,
